@@ -14,6 +14,7 @@ public record UpdateTodoItemCommand : IRequest
 
     public bool Done { get; init; }
     public string? BackgroundColor { get; set; }
+    public List<string> Tags { get; set; } = new List<string>();
 }
 
 public class UpdateTodoItemCommandHandler : IRequestHandler<UpdateTodoItemCommand>

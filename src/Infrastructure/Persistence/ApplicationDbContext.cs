@@ -7,6 +7,7 @@ using Microsoft.Extensions.Options;
 using Todo_App.Application.Common.Interfaces;
 using Todo_App.Domain.Entities;
 using Todo_App.Infrastructure.Identity;
+using Todo_App.Infrastructure.Persistence.Configurations;
 using Todo_App.Infrastructure.Persistence.Interceptors;
 
 namespace Todo_App.Infrastructure.Persistence;
@@ -31,8 +32,12 @@ public class ApplicationDbContext : ApiAuthorizationDbContext<ApplicationUser>, 
 
     public DbSet<TodoItem> TodoItems => Set<TodoItem>();
 
+    public DbSet<Tag> Tags => Set<Tag>();
+
     protected override void OnModelCreating(ModelBuilder builder)
     {
+        builder.ApplyConfiguration(new TagConfiguration());
+        
         builder.ApplyConfigurationsFromAssembly(Assembly.GetExecutingAssembly());
 
         base.OnModelCreating(builder);
@@ -41,6 +46,9 @@ public class ApplicationDbContext : ApiAuthorizationDbContext<ApplicationUser>, 
     protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
     {
         optionsBuilder.AddInterceptors(_auditableEntitySaveChangesInterceptor);
+        optionsBuilder.UseSqlServer(
+            optionsBuilder.Options.FindExtension<Microsoft.EntityFrameworkCore.SqlServer.Infrastructure.Internal.SqlServerOptionsExtension>().ConnectionString,
+            o => o.UseQuerySplittingBehavior(QuerySplittingBehavior.SingleQuery));
     }
 
     public override async Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)

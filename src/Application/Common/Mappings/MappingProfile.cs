@@ -1,5 +1,6 @@
 using System.Reflection;
 using AutoMapper;
+using Todo_App.Domain.Entities;
 
 namespace Todo_App.Application.Common.Mappings;
 
@@ -7,6 +8,17 @@ public class MappingProfile : Profile
 {
     public MappingProfile()
     {
+        // Mapeo básico para Tags
+            CreateMap<Tag, string>().ConvertUsing(t => t.Name ?? string.Empty);
+            
+            // Mapeo para TodoItemWithTagsDto
+            CreateMap<TodoItem, TodoItemWithTagsDto>()
+                .ForMember(dest => dest.Tags, opt => opt.MapFrom(src => src.Tags));
+            
+            // Añade esto para el conteo en TagDto
+            CreateMap<Tag, TagDto>()
+                .ForMember(dest => dest.Count, opt => opt.MapFrom(src => src.TodoItems.Count));
+                
         ApplyMappingsFromAssembly(Assembly.GetExecutingAssembly());
     }
 

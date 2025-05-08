@@ -108,9 +108,9 @@
             </span>
           </div>
           <button
-            *ngIf="filterTags.length > 0"
+            *ngIf="filterTags.length > 0 || searchTerm"
             class="btn btn-clear-filters"
-            (click)="applyFilters()"
+            (click)="clearAllFilters()"
           >
             Clear Filters
           </button>

@@ -490,6 +490,12 @@ export class TodoComponent implements OnInit {
     this.applyFilters();
   }
 
+  clearAllFilters(): void {
+    this.filterTags = [];
+    this.searchTerm = '';
+    this.applyFilters();
+  }
+
   onSearchInput(): void {
     if (this.searchDebounceTimer) {
       clearTimeout(this.searchDebounceTimer);

@@ -514,22 +514,80 @@ export class TodoComponent implements OnInit {
   }
 
   restoreList(listId: number): void {
+    const currentSelectedListId = this.selectedList?.id;
+
     this.listsClient.restoreList(listId).subscribe({
       next: () => {
         this.loadDeletedItems();
-        this.loadTodoLists();
-        console.log('List restored successfully');
+
+        this.listsClient.get().subscribe({
+          next: (result) => {
+            const lists = result.lists.map((list) =>
+              Object.assign(new TodoListDto(), {
+                ...list,
+                items: list.items
+                  .filter((item) => !item.isDeleted)
+                  .map((item) =>
+                    Object.assign(new TodoItemDto(), {
+                      ...item,
+                      backgroundColor: item.backgroundColor || '#ffffff',
+                      tags: item.tags || [],
+                    })
+                  ),
+              })
+            );
+
+            this.unfilteredLists = lists;
+            this.lists = [...lists];
+
+            this.selectedList =
+              this.lists.find((l) => l.id === currentSelectedListId) ||
+              this.lists[0];
+
+            console.log('List restored successfully');
+          },
+          error: (error) => console.error('Error refreshing lists:', error),
+        });
       },
-      error: (error) => console.error('Error restoring list: ', error),
+      error: (error) => console.error('Error restoring list:', error),
     });
   }
 
   restoreItem(itemId: number): void {
+    const currentSelectedListId = this.selectedList?.id;
+
     this.itemsClient.restoreItem(itemId).subscribe({
       next: () => {
         this.loadDeletedItems();
-        this.loadTodoLists();
-        console.log('Item restored successfully');
+
+        this.listsClient.get().subscribe({
+          next: (result) => {
+            const lists = result.lists.map((list) =>
+              Object.assign(new TodoListDto(), {
+                ...list,
+                items: list.items
+                  .filter((item) => !item.isDeleted)
+                  .map((item) =>
+                    Object.assign(new TodoItemDto(), {
+                      ...item,
+                      backgroundColor: item.backgroundColor || '#ffffff',
+                      tags: item.tags || [],
+                    })
+                  ),
+              })
+            );
+
+            this.unfilteredLists = lists;
+            this.lists = [...lists];
+
+            this.selectedList =
+              this.lists.find((l) => l.id === currentSelectedListId) ||
+              this.lists[0];
+
+            console.log('Item restored successfully');
+          },
+          error: (error) => console.error('Error refreshing lists: ', error),
+        });
       },
       error: (error) => console.error('Error restoring item: ', error),
     });

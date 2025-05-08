@@ -1,4 +1,5 @@
 ﻿using MediatR;
+using Microsoft.EntityFrameworkCore;
 using Todo_App.Application.Common.Exceptions;
 using Todo_App.Application.Common.Interfaces;
 using Todo_App.Domain.Entities;
@@ -17,6 +18,7 @@ public record UpdateTodoItemDetailCommand : IRequest
     public string? Note { get; init; }
 
     public string? BackgroundColor { get; set; } = "#ffffff";
+    public List<string> Tags { get; set; } = new List<string>();
 }
 
 public class UpdateTodoItemDetailCommandHandler : IRequestHandler<UpdateTodoItemDetailCommand>
@@ -31,7 +33,8 @@ public class UpdateTodoItemDetailCommandHandler : IRequestHandler<UpdateTodoItem
     public async Task<Unit> Handle(UpdateTodoItemDetailCommand request, CancellationToken cancellationToken)
     {
         var entity = await _context.TodoItems
-            .FindAsync(new object[] { request.Id }, cancellationToken);
+            .Include(item => item.Tags) 
+            .FirstOrDefaultAsync(item => item.Id == request.Id, cancellationToken);
 
         if (entity == null)
         {
@@ -43,8 +46,43 @@ public class UpdateTodoItemDetailCommandHandler : IRequestHandler<UpdateTodoItem
         entity.Note = request.Note;
         entity.BackgroundColor = request.BackgroundColor;
 
+        await UpdateTags(entity, request.Tags ?? new List<string>(), cancellationToken);
+
         await _context.SaveChangesAsync(cancellationToken);
 
         return Unit.Value;
+    }
+
+    private async Task UpdateTags(TodoItem todoItem, List<string> newTagNames, CancellationToken cancellationToken)
+    {
+        todoItem.Tags.Clear();
+
+        var existingTags = await _context.Tags
+            .Where(t => newTagNames.Contains(t.Name))
+            .ToListAsync(cancellationToken);
+
+        foreach (var tagName in newTagNames)
+        {
+            var existingTag = existingTags.FirstOrDefault(t => t.Name == tagName);
+
+            if (existingTag != null)
+            {
+                todoItem.Tags.Add(existingTag);
+            }
+            else
+            {
+                var newTag = new Tag
+                {
+                    Name = tagName,
+                    Color = GetDefaultTagColor()
+                };
+                todoItem.Tags.Add(newTag);
+            }
+        }
+    }
+
+    private string GetDefaultTagColor()
+    {
+        return "#6b7280";
     }
 }

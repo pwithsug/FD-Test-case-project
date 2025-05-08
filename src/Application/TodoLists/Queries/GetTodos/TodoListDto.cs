@@ -17,4 +17,7 @@ public class TodoListDto : IMapFrom<TodoList>
     public string? Colour { get; set; }
 
     public IList<TodoItemDto> Items { get; set; }
+
+    public bool IsDeleted { get; set; } = false;
+    public DateTime DeletedAt { get; set; }
 }

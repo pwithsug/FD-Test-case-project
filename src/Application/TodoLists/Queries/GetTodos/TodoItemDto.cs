@@ -27,4 +27,7 @@ public class TodoItemDto : IMapFrom<TodoItem>
             .ForMember(d => d.Priority, opt => opt.MapFrom(s => (int)s.Priority))
             .ForMember(d => d.Tags, opt => opt.MapFrom(s => s.Tags));
     }
+
+    public bool IsDeleted { get; set; } = false;
+    public DateTime DeletedAt { get; set; }
 }

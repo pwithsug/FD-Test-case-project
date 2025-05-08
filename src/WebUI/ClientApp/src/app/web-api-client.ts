@@ -27,6 +27,8 @@ export interface ITodoItemsClient {
     getPopularTags(count: number | undefined): Observable<TagDto[]>;
     getAvailableTags(): Observable<string[]>;
     updateItemDetailsWithTags(id: number | undefined, command: UpdateTodoItemDetailCommand): Observable<FileResponse>;
+    getDeletedItems(): Observable<TodoItemDto[]>;
+    restoreItem(id: number): Observable<FileResponse>;
 }
 
 @Injectable({
@@ -640,6 +642,110 @@ export class TodoItemsClient implements ITodoItemsClient {
         }
         return _observableOf(null as any);
     }
+
+    getDeletedItems(): Observable<TodoItemDto[]> {
+        let url_ = this.baseUrl + "/api/TodoItems/deleted";
+        url_ = url_.replace(/[?&]$/, "");
+
+        let options_ : any = {
+            observe: "response",
+            responseType: "blob",
+            headers: new HttpHeaders({
+                "Accept": "application/json"
+            })
+        };
+
+        return this.http.request("get", url_, options_).pipe(_observableMergeMap((response_ : any) => {
+            return this.processGetDeletedItems(response_);
+        })).pipe(_observableCatch((response_: any) => {
+            if (response_ instanceof HttpResponseBase) {
+                try {
+                    return this.processGetDeletedItems(response_ as any);
+                } catch (e) {
+                    return _observableThrow(e) as any as Observable<TodoItemDto[]>;
+                }
+            } else
+                return _observableThrow(response_) as any as Observable<TodoItemDto[]>;
+        }));
+    }
+
+    protected processGetDeletedItems(response: HttpResponseBase): Observable<TodoItemDto[]> {
+        const status = response.status;
+        const responseBlob =
+            response instanceof HttpResponse ? response.body :
+            (response as any).error instanceof Blob ? (response as any).error : undefined;
+
+        let _headers: any = {}; if (response.headers) { for (let key of response.headers.keys()) { _headers[key] = response.headers.get(key); }}
+        if (status === 200) {
+            return blobToText(responseBlob).pipe(_observableMergeMap((_responseText: string) => {
+            let result200: any = null;
+            let resultData200 = _responseText === "" ? null : JSON.parse(_responseText, this.jsonParseReviver);
+            if (Array.isArray(resultData200)) {
+                result200 = [] as any;
+                for (let item of resultData200)
+                    result200!.push(TodoItemDto.fromJS(item));
+            }
+            else {
+                result200 = <any>null;
+            }
+            return _observableOf(result200);
+            }));
+        } else if (status !== 200 && status !== 204) {
+            return blobToText(responseBlob).pipe(_observableMergeMap((_responseText: string) => {
+            return throwException("An unexpected server error occurred.", status, _responseText, _headers);
+            }));
+        }
+        return _observableOf(null as any);
+    }
+
+    restoreItem(id: number): Observable<FileResponse> {
+        let url_ = this.baseUrl + "/api/TodoItems/{id}/restore";
+        if (id === undefined || id === null)
+            throw new Error("The parameter 'id' must be defined.");
+        url_ = url_.replace("{id}", encodeURIComponent("" + id));
+        url_ = url_.replace(/[?&]$/, "");
+
+        let options_ : any = {
+            observe: "response",
+            responseType: "blob",
+            headers: new HttpHeaders({
+                "Accept": "application/octet-stream"
+            })
+        };
+
+        return this.http.request("put", url_, options_).pipe(_observableMergeMap((response_ : any) => {
+            return this.processRestoreItem(response_);
+        })).pipe(_observableCatch((response_: any) => {
+            if (response_ instanceof HttpResponseBase) {
+                try {
+                    return this.processRestoreItem(response_ as any);
+                } catch (e) {
+                    return _observableThrow(e) as any as Observable<FileResponse>;
+                }
+            } else
+                return _observableThrow(response_) as any as Observable<FileResponse>;
+        }));
+    }
+
+    protected processRestoreItem(response: HttpResponseBase): Observable<FileResponse> {
+        const status = response.status;
+        const responseBlob =
+            response instanceof HttpResponse ? response.body :
+            (response as any).error instanceof Blob ? (response as any).error : undefined;
+
+        let _headers: any = {}; if (response.headers) { for (let key of response.headers.keys()) { _headers[key] = response.headers.get(key); }}
+        if (status === 200 || status === 206) {
+            const contentDisposition = response.headers ? response.headers.get("content-disposition") : undefined;
+            const fileNameMatch = contentDisposition ? /filename="?([^"]*?)"?(;|$)/g.exec(contentDisposition) : undefined;
+            const fileName = fileNameMatch && fileNameMatch.length > 1 ? fileNameMatch[1] : undefined;
+            return _observableOf({ fileName: fileName, data: responseBlob as any, status: status, headers: _headers });
+        } else if (status !== 200 && status !== 204) {
+            return blobToText(responseBlob).pipe(_observableMergeMap((_responseText: string) => {
+            return throwException("An unexpected server error occurred.", status, _responseText, _headers);
+            }));
+        }
+        return _observableOf(null as any);
+    }
 }
 
 export interface ITodoListsClient {
@@ -648,6 +754,8 @@ export interface ITodoListsClient {
     get2(id: number): Observable<FileResponse>;
     update(id: number, command: UpdateTodoListCommand): Observable<FileResponse>;
     delete(id: number): Observable<FileResponse>;
+    getDeletedLists(): Observable<TodoListDto[]>;
+    restoreList(id: number): Observable<FileResponse>;
 }
 
 @Injectable({
@@ -896,6 +1004,110 @@ export class TodoListsClient implements ITodoListsClient {
     }
 
     protected processDelete(response: HttpResponseBase): Observable<FileResponse> {
+        const status = response.status;
+        const responseBlob =
+            response instanceof HttpResponse ? response.body :
+            (response as any).error instanceof Blob ? (response as any).error : undefined;
+
+        let _headers: any = {}; if (response.headers) { for (let key of response.headers.keys()) { _headers[key] = response.headers.get(key); }}
+        if (status === 200 || status === 206) {
+            const contentDisposition = response.headers ? response.headers.get("content-disposition") : undefined;
+            const fileNameMatch = contentDisposition ? /filename="?([^"]*?)"?(;|$)/g.exec(contentDisposition) : undefined;
+            const fileName = fileNameMatch && fileNameMatch.length > 1 ? fileNameMatch[1] : undefined;
+            return _observableOf({ fileName: fileName, data: responseBlob as any, status: status, headers: _headers });
+        } else if (status !== 200 && status !== 204) {
+            return blobToText(responseBlob).pipe(_observableMergeMap((_responseText: string) => {
+            return throwException("An unexpected server error occurred.", status, _responseText, _headers);
+            }));
+        }
+        return _observableOf(null as any);
+    }
+
+    getDeletedLists(): Observable<TodoListDto[]> {
+        let url_ = this.baseUrl + "/api/TodoLists/deleted";
+        url_ = url_.replace(/[?&]$/, "");
+
+        let options_ : any = {
+            observe: "response",
+            responseType: "blob",
+            headers: new HttpHeaders({
+                "Accept": "application/json"
+            })
+        };
+
+        return this.http.request("get", url_, options_).pipe(_observableMergeMap((response_ : any) => {
+            return this.processGetDeletedLists(response_);
+        })).pipe(_observableCatch((response_: any) => {
+            if (response_ instanceof HttpResponseBase) {
+                try {
+                    return this.processGetDeletedLists(response_ as any);
+                } catch (e) {
+                    return _observableThrow(e) as any as Observable<TodoListDto[]>;
+                }
+            } else
+                return _observableThrow(response_) as any as Observable<TodoListDto[]>;
+        }));
+    }
+
+    protected processGetDeletedLists(response: HttpResponseBase): Observable<TodoListDto[]> {
+        const status = response.status;
+        const responseBlob =
+            response instanceof HttpResponse ? response.body :
+            (response as any).error instanceof Blob ? (response as any).error : undefined;
+
+        let _headers: any = {}; if (response.headers) { for (let key of response.headers.keys()) { _headers[key] = response.headers.get(key); }}
+        if (status === 200) {
+            return blobToText(responseBlob).pipe(_observableMergeMap((_responseText: string) => {
+            let result200: any = null;
+            let resultData200 = _responseText === "" ? null : JSON.parse(_responseText, this.jsonParseReviver);
+            if (Array.isArray(resultData200)) {
+                result200 = [] as any;
+                for (let item of resultData200)
+                    result200!.push(TodoListDto.fromJS(item));
+            }
+            else {
+                result200 = <any>null;
+            }
+            return _observableOf(result200);
+            }));
+        } else if (status !== 200 && status !== 204) {
+            return blobToText(responseBlob).pipe(_observableMergeMap((_responseText: string) => {
+            return throwException("An unexpected server error occurred.", status, _responseText, _headers);
+            }));
+        }
+        return _observableOf(null as any);
+    }
+
+    restoreList(id: number): Observable<FileResponse> {
+        let url_ = this.baseUrl + "/api/TodoLists/{id}/restore";
+        if (id === undefined || id === null)
+            throw new Error("The parameter 'id' must be defined.");
+        url_ = url_.replace("{id}", encodeURIComponent("" + id));
+        url_ = url_.replace(/[?&]$/, "");
+
+        let options_ : any = {
+            observe: "response",
+            responseType: "blob",
+            headers: new HttpHeaders({
+                "Accept": "application/octet-stream"
+            })
+        };
+
+        return this.http.request("put", url_, options_).pipe(_observableMergeMap((response_ : any) => {
+            return this.processRestoreList(response_);
+        })).pipe(_observableCatch((response_: any) => {
+            if (response_ instanceof HttpResponseBase) {
+                try {
+                    return this.processRestoreList(response_ as any);
+                } catch (e) {
+                    return _observableThrow(e) as any as Observable<FileResponse>;
+                }
+            } else
+                return _observableThrow(response_) as any as Observable<FileResponse>;
+        }));
+    }
+
+    protected processRestoreList(response: HttpResponseBase): Observable<FileResponse> {
         const status = response.status;
         const responseBlob =
             response instanceof HttpResponse ? response.body :
@@ -1416,6 +1628,86 @@ export interface ITagDto {
     count?: number;
 }
 
+export class TodoItemDto implements ITodoItemDto {
+    id?: number;
+    listId?: number;
+    title?: string | undefined;
+    done?: boolean;
+    priority?: number;
+    note?: string | undefined;
+    backgroundColor?: string | undefined;
+    tags?: string[];
+    isDeleted?: boolean;
+    deletedAt?: Date;
+
+    constructor(data?: ITodoItemDto) {
+        if (data) {
+            for (var property in data) {
+                if (data.hasOwnProperty(property))
+                    (<any>this)[property] = (<any>data)[property];
+            }
+        }
+    }
+
+    init(_data?: any) {
+        if (_data) {
+            this.id = _data["id"];
+            this.listId = _data["listId"];
+            this.title = _data["title"];
+            this.done = _data["done"];
+            this.priority = _data["priority"];
+            this.note = _data["note"];
+            this.backgroundColor = _data["backgroundColor"];
+            if (Array.isArray(_data["tags"])) {
+                this.tags = [] as any;
+                for (let item of _data["tags"])
+                    this.tags!.push(item);
+            }
+            this.isDeleted = _data["isDeleted"];
+            this.deletedAt = _data["deletedAt"] ? new Date(_data["deletedAt"].toString()) : <any>undefined;
+        }
+    }
+
+    static fromJS(data: any): TodoItemDto {
+        data = typeof data === 'object' ? data : {};
+        let result = new TodoItemDto();
+        result.init(data);
+        return result;
+    }
+
+    toJSON(data?: any) {
+        data = typeof data === 'object' ? data : {};
+        data["id"] = this.id;
+        data["listId"] = this.listId;
+        data["title"] = this.title;
+        data["done"] = this.done;
+        data["priority"] = this.priority;
+        data["note"] = this.note;
+        data["backgroundColor"] = this.backgroundColor;
+        if (Array.isArray(this.tags)) {
+            data["tags"] = [];
+            for (let item of this.tags)
+                data["tags"].push(item);
+        }
+        data["isDeleted"] = this.isDeleted;
+        data["deletedAt"] = this.deletedAt ? this.deletedAt.toISOString() : <any>undefined;
+        return data;
+    }
+}
+
+export interface ITodoItemDto {
+    id?: number;
+    listId?: number;
+    title?: string | undefined;
+    done?: boolean;
+    priority?: number;
+    note?: string | undefined;
+    backgroundColor?: string | undefined;
+    tags?: string[];
+    isDeleted?: boolean;
+    deletedAt?: Date;
+}
+
 export class TodosVm implements ITodosVm {
     priorityLevels?: PriorityLevelDto[];
     lists?: TodoListDto[];
@@ -1517,6 +1809,8 @@ export class TodoListDto implements ITodoListDto {
     title?: string | undefined;
     colour?: string | undefined;
     items?: TodoItemDto[];
+    isDeleted?: boolean;
+    deletedAt?: Date;
 
     constructor(data?: ITodoListDto) {
         if (data) {
@@ -1537,6 +1831,8 @@ export class TodoListDto implements ITodoListDto {
                 for (let item of _data["items"])
                     this.items!.push(TodoItemDto.fromJS(item));
             }
+            this.isDeleted = _data["isDeleted"];
+            this.deletedAt = _data["deletedAt"] ? new Date(_data["deletedAt"].toString()) : <any>undefined;
         }
     }
 
@@ -1557,6 +1853,8 @@ export class TodoListDto implements ITodoListDto {
             for (let item of this.items)
                 data["items"].push(item.toJSON());
         }
+        data["isDeleted"] = this.isDeleted;
+        data["deletedAt"] = this.deletedAt ? this.deletedAt.toISOString() : <any>undefined;
         return data;
     }
 }
@@ -1566,78 +1864,8 @@ export interface ITodoListDto {
     title?: string | undefined;
     colour?: string | undefined;
     items?: TodoItemDto[];
-}
-
-export class TodoItemDto implements ITodoItemDto {
-    id?: number;
-    listId?: number;
-    title?: string | undefined;
-    done?: boolean;
-    priority?: number;
-    note?: string | undefined;
-    backgroundColor?: string | undefined;
-    tags?: string[];
-
-    constructor(data?: ITodoItemDto) {
-        if (data) {
-            for (var property in data) {
-                if (data.hasOwnProperty(property))
-                    (<any>this)[property] = (<any>data)[property];
-            }
-        }
-    }
-
-    init(_data?: any) {
-        if (_data) {
-            this.id = _data["id"];
-            this.listId = _data["listId"];
-            this.title = _data["title"];
-            this.done = _data["done"];
-            this.priority = _data["priority"];
-            this.note = _data["note"];
-            this.backgroundColor = _data["backgroundColor"];
-            if (Array.isArray(_data["tags"])) {
-                this.tags = [] as any;
-                for (let item of _data["tags"])
-                    this.tags!.push(item);
-            }
-        }
-    }
-
-    static fromJS(data: any): TodoItemDto {
-        data = typeof data === 'object' ? data : {};
-        let result = new TodoItemDto();
-        result.init(data);
-        return result;
-    }
-
-    toJSON(data?: any) {
-        data = typeof data === 'object' ? data : {};
-        data["id"] = this.id;
-        data["listId"] = this.listId;
-        data["title"] = this.title;
-        data["done"] = this.done;
-        data["priority"] = this.priority;
-        data["note"] = this.note;
-        data["backgroundColor"] = this.backgroundColor;
-        if (Array.isArray(this.tags)) {
-            data["tags"] = [];
-            for (let item of this.tags)
-                data["tags"].push(item);
-        }
-        return data;
-    }
-}
-
-export interface ITodoItemDto {
-    id?: number;
-    listId?: number;
-    title?: string | undefined;
-    done?: boolean;
-    priority?: number;
-    note?: string | undefined;
-    backgroundColor?: string | undefined;
-    tags?: string[];
+    isDeleted?: boolean;
+    deletedAt?: Date;
 }
 
 export class CreateTodoListCommand implements ICreateTodoListCommand {

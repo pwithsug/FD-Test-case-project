@@ -1,4 +1,5 @@
 ﻿using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Storage;
 using Todo_App.Domain.Entities;
 
 namespace Todo_App.Application.Common.Interfaces;
@@ -11,4 +12,6 @@ public interface IApplicationDbContext
     DbSet<Tag> Tags { get; }
 
     Task<int> SaveChangesAsync(CancellationToken cancellationToken);
+
+    Task<IDbContextTransaction> BeginTransactionAsync(CancellationToken cancellationToken);
 }

@@ -3,6 +3,7 @@ using Duende.IdentityServer.EntityFramework.Options;
 using MediatR;
 using Microsoft.AspNetCore.ApiAuthorization.IdentityServer;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Storage;
 using Microsoft.Extensions.Options;
 using Todo_App.Application.Common.Interfaces;
 using Todo_App.Domain.Entities;
@@ -16,7 +17,10 @@ public class ApplicationDbContext : ApiAuthorizationDbContext<ApplicationUser>, 
 {
     private readonly IMediator _mediator;
     private readonly AuditableEntitySaveChangesInterceptor _auditableEntitySaveChangesInterceptor;
-
+    public async Task<IDbContextTransaction> BeginTransactionAsync(CancellationToken cancellationToken = default)
+    {
+        return await Database.BeginTransactionAsync(cancellationToken);
+    }
     public ApplicationDbContext(
         DbContextOptions<ApplicationDbContext> options,
         IOptions<OperationalStoreOptions> operationalStoreOptions,
@@ -37,7 +41,9 @@ public class ApplicationDbContext : ApiAuthorizationDbContext<ApplicationUser>, 
     protected override void OnModelCreating(ModelBuilder builder)
     {
         builder.ApplyConfiguration(new TagConfiguration());
-        
+        builder.Entity<TodoList>().HasQueryFilter(t => !t.IsDeleted);
+        builder.Entity<TodoItem>().HasQueryFilter(t => !t.IsDeleted);
+
         builder.ApplyConfigurationsFromAssembly(Assembly.GetExecutingAssembly());
 
         base.OnModelCreating(builder);

@@ -32,6 +32,9 @@ export class TodoComponent implements OnInit {
   filterTags: string[] = [];
   popularTags: string[] = [];
   unfilteredLists: TodoListDto[] = [];
+  deletedLists: TodoListDto[] = [];
+  deletedItems: TodoItemDto[] = [];
+  showDeleted: boolean = false;
   searchTerm: string = '';
   private searchDebounceTimer: any;
   newListEditor: any = {};
@@ -136,14 +139,19 @@ export class TodoComponent implements OnInit {
   }
 
   deleteListConfirmed(): void {
-    this.listsClient.delete(this.selectedList.id).subscribe(
-      () => {
+    this.listsClient.delete(this.selectedList.id).subscribe({
+      next: () => {
         this.deleteListModalRef.hide();
         this.lists = this.lists.filter((t) => t.id !== this.selectedList.id);
+
         this.selectedList = this.lists.length ? this.lists[0] : null;
+
+        console.log('List moved to trash');
       },
-      (error) => console.error(error)
-    );
+      error: (error) => {
+        console.error('Error deleting list', error);
+      },
+    });
   }
 
   // Items
@@ -182,43 +190,36 @@ export class TodoComponent implements OnInit {
   }
 
   private getUsedTags(): string[] {
-    if (!this.unfilteredLists) return [];
-  
-    const allTags: string[] = [];
-    this.unfilteredLists.forEach((list) => {
-      list.items.forEach((item) => {
-        if (item.tags) {
-          item.tags.forEach((tag) => {
-            if (typeof tag === 'string' && tag.trim() !== '') {
-              allTags.push(tag);
-            }
-          });
-        }
-      });
-    });
-  
-    return Array.from(new Set(allTags)); 
+    if (!this.selectedList || !this.selectedList.items) return [];
+
+    const allTags = this.selectedList.items
+      .filter((item) => !item.isDeleted)
+      .map((item) => item.tags || [])
+      .reduce((acc, tags) => acc.concat(tags), [])
+      .filter((tag) => typeof tag === 'string' && tag.trim() !== '');
+
+    return Array.from(new Set(allTags));
   }
 
   private getPopularTags(): string[] {
-    if (!this.unfilteredLists) return [];
-    
-    const tagCounts: {[tag: string]: number} = {};
-    
-    this.unfilteredLists.forEach(list => {
-      list.items.forEach(item => {
-        item.tags?.forEach(tag => {
+    if (!this.selectedList || !this.selectedList.items) return [];
+
+    const tagCounts: { [tag: string]: number } = {};
+
+    this.selectedList.items
+      .filter((item) => !item.isDeleted)
+      .forEach((item) => {
+        item.tags?.forEach((tag) => {
           if (typeof tag === 'string' && tag.trim() !== '') {
             tagCounts[tag] = (tagCounts[tag] || 0) + 1;
           }
         });
       });
-    });
-    
+
     return Object.entries(tagCounts)
-      .sort((a, b) => b[1] - a[1])  
-      .map(entry => entry[0])       
-      .slice(0, 5);                 
+      .sort((a, b) => b[1] - a[1])
+      .map(([tag]) => tag)
+      .slice(0, 5);
   }
 
   updateItemDetails(): void {
@@ -276,6 +277,13 @@ export class TodoComponent implements OnInit {
       },
       error: (error) => console.error('Fetching Data Error:', error),
     });
+  }
+
+  onListSelected(list: TodoListDto): void {
+    this.selectedList = list;
+    this.filterTags = [];
+    this.loadAvailableTags();
+    this.applyFilters();
   }
 
   addItem() {
@@ -351,6 +359,7 @@ export class TodoComponent implements OnInit {
       }, 1000);
       return;
     }
+
     this.deleting = false;
     if (this.itemDetailsModalRef) {
       this.itemDetailsModalRef.hide();
@@ -360,13 +369,17 @@ export class TodoComponent implements OnInit {
       const itemIndex = this.selectedList.items.indexOf(this.selectedItem);
       this.selectedList.items.splice(itemIndex, 1);
     } else {
-      this.itemsClient.delete(item.id).subscribe(
-        () =>
-          (this.selectedList.items = this.selectedList.items.filter(
+      this.itemsClient.delete(item.id).subscribe({
+        next: () => {
+          this.selectedList.items = this.selectedList.items.filter(
             (t) => t.id !== item.id
-          )),
-        (error) => console.error(error)
-      );
+          );
+          console.log('Item moved to trash');
+        },
+        error: (error) => {
+          console.error('Error deleting item', error);
+        },
+      });
     }
   }
 
@@ -417,13 +430,15 @@ export class TodoComponent implements OnInit {
         const lists = result.lists.map((list) =>
           Object.assign(new TodoListDto(), {
             ...list,
-            items: list.items.map((item) =>
-              Object.assign(new TodoItemDto(), {
-                ...item,
-                backgroundColor: item.backgroundColor || '#ffffff',
-                tags: item.tags || [],
-              })
-            ),
+            items: list.items
+              .filter((item) => !item.isDeleted)
+              .map((item) =>
+                Object.assign(new TodoItemDto(), {
+                  ...item,
+                  backgroundColor: item.backgroundColor || '#ffffff',
+                  tags: item.tags || [],
+                })
+              ),
           })
         );
 
@@ -484,5 +499,54 @@ export class TodoComponent implements OnInit {
       this.applyFilters();
       this.searchDebounceTimer = null;
     }, 300);
+  }
+
+  loadDeletedItems(): void {
+    this.listsClient.getDeletedLists().subscribe({
+      next: (lists) => (this.deletedLists = lists),
+      error: (error) => console.error('Error loading deleted lists', error),
+    });
+
+    this.itemsClient.getDeletedItems().subscribe({
+      next: (items) => (this.deletedItems = items),
+      error: (error) => console.error('Error loading deleted items', error),
+    });
+  }
+
+  restoreList(listId: number): void {
+    this.listsClient.restoreList(listId).subscribe({
+      next: () => {
+        this.loadDeletedItems();
+        this.loadTodoLists();
+        console.log('List restored successfully');
+      },
+      error: (error) => console.error('Error restoring list: ', error),
+    });
+  }
+
+  restoreItem(itemId: number): void {
+    this.itemsClient.restoreItem(itemId).subscribe({
+      next: () => {
+        this.loadDeletedItems();
+        this.loadTodoLists();
+        console.log('Item restored successfully');
+      },
+      error: (error) => console.error('Error restoring item: ', error),
+    });
+  }
+
+  toggleDeletedView(): void {
+    this.showDeleted = !this.showDeleted;
+    if (this.showDeleted) {
+      this.loadDeletedItems();
+    }
+  }
+
+  get deletedItemsForSelectedList(): any[] {
+    return (
+      this.deletedItems?.filter(
+        (item) => item.listId === this.selectedList?.id
+      ) || []
+    );
   }
 }

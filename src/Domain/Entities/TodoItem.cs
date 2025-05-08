@@ -31,4 +31,7 @@ public class TodoItem : BaseAuditableEntity
 
 
     public TodoList List { get; set; } = null!;
+
+    public bool IsDeleted { get; set; } = false;
+    public DateTime? DeletedAt { get; set; }
 }

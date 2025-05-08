@@ -7,17 +7,22 @@ using Todo_App.Application.TodoItems.Commands.DeleteTodoItem;
 using Todo_App.Application.TodoItems.Commands.UpdateTodoItem;
 using Todo_App.Application.TodoItems.Commands.UpdateTodoItemDetail;
 using Todo_App.Application.TodoItems.Queries.GetTodoItemsWithPagination;
+using Todo_App.Application.TodoLists.Queries.GetTodos;
 using Todo_App.Infrastructure.Persistence;
+using AutoMapper.QueryableExtensions;
+using AutoMapper;
 
 namespace Todo_App.WebUI.Controllers;
 
 public class TodoItemsController : ApiControllerBase
 {
-    private readonly ApplicationDbContext _context; // Add this field
+    private readonly ApplicationDbContext _context;
+    private readonly IMapper _mapper;
 
-    public TodoItemsController(ApplicationDbContext context) // Add this constructor
+    public TodoItemsController(ApplicationDbContext context, IMapper mapper)
     {
         _context = context;
+        _mapper = mapper;
     }
 
     [HttpGet]
@@ -115,9 +120,35 @@ public class TodoItemsController : ApiControllerBase
     public async Task<ActionResult> UpdateItemDetailsWithTags(int id, UpdateTodoItemDetailCommand command)
     {
         if (id != command.Id) return BadRequest();
-        
+
         var item = await Mediator.Send(command);
-        
-        return Ok(item); 
+
+        return Ok(item);
+    }
+
+    [HttpGet("deleted")]
+    public async Task<ActionResult<List<TodoItemDto>>> GetDeletedItems()
+    {
+        return await _context.TodoItems
+            .IgnoreQueryFilters()
+            .Where(i => i.IsDeleted)
+            .ProjectTo<TodoItemDto>(_mapper.ConfigurationProvider)
+            .ToListAsync();
+    }
+
+    [HttpPut("{id}/restore")]
+    public async Task<ActionResult> RestoreItem(int id)
+    {
+        var item = await _context.TodoItems
+            .IgnoreQueryFilters()
+            .FirstOrDefaultAsync(i => i.Id == id && i.IsDeleted);
+
+        if (item == null) return NotFound();
+
+        item.IsDeleted = false;
+        item.DeletedAt = null;
+
+        await _context.SaveChangesAsync();
+        return NoContent();
     }
 }
